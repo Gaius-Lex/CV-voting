@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: cv-voting-db
+    environment:
+      - POSTGRES_DB=cvvoting
+      - POSTGRES_USER=cvvoting
+      - POSTGRES_PASSWORD=cvvoting
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cv-voting-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cv-voting-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_CLIENT_SECRETS_FILE=credentials.json
+      - REDIRECT_URI=http://localhost:8000/auth/callback
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql://cvvoting:cvvoting@db:5432/cvvoting
+    volumes:
+      - ./backend:/app
+    networks:
+      - cv-voting-network
+    restart: unless-stopped
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cv-voting-frontend
+    ports:
+      - "3123:80"
+    depends_on:
+      - backend
+    networks:
+      - cv-voting-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  cv-voting-network:
+    driver: bridge
+
+volumes:
+  backend_data:
+  postgres_data: 

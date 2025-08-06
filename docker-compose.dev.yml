@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: cv-voting-db-dev
+    environment:
+      - POSTGRES_DB=cvvoting
+      - POSTGRES_USER=cvvoting
+      - POSTGRES_PASSWORD=cvvoting
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cv-voting-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cvvoting"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cv-voting-backend-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_CLIENT_SECRETS_FILE=credentials.json
+      - REDIRECT_URI=http://localhost:8000/auth/callback
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql://cvvoting:cvvoting@db:5432/cvvoting
+      - ENVIRONMENT=development
+    volumes:
+      - ./backend:/app
+      - ./credentials.json:/app/credentials.json
+    networks:
+      - cv-voting-network
+    restart: unless-stopped
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      - db
+
+  frontend:
+    image: node:18-alpine
+    container_name: cv-voting-frontend-dev
+    ports:
+      - "3123:3000"
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    networks:
+      - cv-voting-network
+    restart: unless-stopped
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - backend
+
+networks:
+  cv-voting-network:
+    driver: bridge
+
+volumes:
+  postgres_data: 
