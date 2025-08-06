@@ -36,6 +36,8 @@ from sqlalchemy.orm import Session
 logger = getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+BASE_DOMAIN = os.getenv("BASE_DOMAIN", "http://localhost:8000")
+
 app = FastAPI(title="CV Voting API", version="1.0.0")
 
 # CORS middleware
@@ -46,6 +48,7 @@ app.add_middleware(
         "http://localhost:3000",  # Keep for local development
         "http://127.0.0.1:3123",
         "http://127.0.0.1:3000",
+        BASE_DOMAIN,
         "*"  # Allow all origins for development (remove in production)
     ],
     allow_credentials=True,
@@ -66,6 +69,7 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_CLIENT_SECRETS_FILE = os.getenv("GOOGLE_CLIENT_SECRETS_FILE", "credentials.json")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8000/auth/callback")
+
 
 # OpenAI configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -270,7 +274,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
             # Ensure we have a valid user_id
             if not user_id:
                 logger.error("No valid user ID found in user info")
-                return RedirectResponse(url="http://localhost:3123?auth=error")
+                return RedirectResponse(url=f"{BASE_DOMAIN}?auth=error")
             
             # Store credentials and user info in database
             create_or_update_user_session(
@@ -278,15 +282,15 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
             )
             
             # Redirect to frontend with success and user_id
-            return RedirectResponse(url=f"http://localhost:3123?auth=success&user_id={user_id}")
+            return RedirectResponse(url=f"{BASE_DOMAIN}?auth=success&user_id={user_id}")
             
         except Exception as user_error:
             logger.exception("Failed to get user info")
-            return RedirectResponse(url="http://localhost:3123?auth=error")
+            return RedirectResponse(url=f"{BASE_DOMAIN}?auth=error")
         
     except Exception as e:
         logger.exception("Failed to handle OAuth callback")
-        return RedirectResponse(url="http://localhost:3123?auth=error")
+        return RedirectResponse(url=f"{BASE_DOMAIN}?auth=error")
 
 @app.get("/auth/status")
 async def auth_status(user_id: str = None, db: Session = Depends(get_db)):

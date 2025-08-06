@@ -1,18 +1,32 @@
 # CV Voting App
 
-A collaborative CV evaluation and voting application that integrates with Google Drive for document management and score tracking.
+A collaborative CV evaluation and voting application with AI-powered features that integrates with Google Drive for document management and automated score tracking.
 
 ## Features
 
-- **User Authentication**: Simple name-based user identification
-- **Google Drive Integration**: Load CVs directly from Google Drive folders
-- **Star Rating System**: Rate CVs from 1-5 stars
-- **Comments**: Add detailed feedback on each CV
+### Core Functionality
+- **Google OAuth2 Authentication**: Secure authentication with Google Drive integration
+- **Google Drive Integration**: Load CVs directly from Google Drive folders with full API access
+- **Star Rating System**: Rate CVs from 1-5 stars with visual feedback
+- **Comments System**: Add, edit, and delete detailed feedback on each CV
 - **Real-time Collaboration**: Multiple users can vote and comment simultaneously
-- **Automatic Score Tracking**: Scores are automatically saved to a CSV file in your Google Drive
-- **Document Preview**: View CVs directly in the app with modal preview
+- **Auto-save**: Automatic score saving with visual indicators
+- **Manual Refresh**: Refresh scores from Google Drive without page reload
+- **Document Preview**: View CVs directly in the app with full-screen modal preview
+
+### AI-Powered Features
+- **AI CV Grading**: Automated CV evaluation using OpenAI GPT-4o
+- **Smart Rejection Letters**: Generate personalized rejection letters in multiple languages
+- **Smart Acceptance Letters**: Generate welcoming acceptance letters in multiple languages
+- **Multi-language Support**: Generate letters in English, Polish, Spanish, French, and German
+
+### User Experience
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **User Profiles**: Display user avatars and information from Google accounts
 - **Average Ratings**: See overall ratings and total voter count for each CV
-- **Responsive Design**: Works on desktop and mobile devices
+- **Comment Management**: Edit and delete your own comments inline
+- **Loading States**: Clear visual feedback during operations
+- **Error Handling**: Comprehensive error messages and recovery options
 
 ## Technologies Used
 
@@ -23,10 +37,14 @@ A collaborative CV evaluation and voting application that integrates with Google
 - **Lucide React**: Beautiful icon library
 
 ### Backend
-- **FastAPI**: Modern, fast Python web framework
+- **FastAPI**: Modern, fast Python web framework with async support
 - **Uvicorn**: ASGI server for FastAPI
-- **httpx**: Async HTTP client for Google Drive API calls
+- **Google APIs**: Google Drive API, OAuth2, and user profile integration
+- **OpenAI GPT-4**: AI-powered CV grading and letter generation
 - **Pydantic**: Data validation and settings management
+- **python-dotenv**: Environment variable management
+- **SQLAlchemy**: Database ORM for user session management
+- **PyPDF2**: PDF text extraction for AI analysis
 
 ### Infrastructure
 - **Docker & Docker Compose**: Containerization and orchestration
@@ -35,151 +53,147 @@ A collaborative CV evaluation and voting application that integrates with Google
 - **Google Drive API**: Document storage and management
 - **Google OAuth2**: Secure authentication
 
-## Setup Instructions
+## Quick Start
 
 ### Prerequisites
-
 - Docker and Docker Compose
-- Google Drive account
-- Google Drive API key
-
-### Production Deployment
-
-For production deployment with unified nginx proxy:
-
-1. **Clone or navigate to the project directory**:
-   ```bash
-   cd misc/cv-voting
-   ```
-
-2. **Set up environment variables**:
-   ```bash
-   cp env.example .env
-   # Edit .env with your configuration
-   ```
-
-3. **Build and start the production environment**:
-   ```bash
-   docker-compose up --build -d
-   ```
-
-4. **Access the application**:
-   - Frontend: http://localhost:80
-   - API: http://localhost:80/api/*
-   - All requests are handled by nginx proxy
-
-5. **Test the setup**:
-   ```bash
-   ./test-production.sh
-   ```
+- Google Cloud account (for OAuth2)
+- OpenAI account (for AI features)
 
 ### Development Setup
 
-For local development with hot reloading:
-
-1. **Clone or navigate to the project directory**:
+1. **Clone and navigate to project**:
    ```bash
    cd misc/cv-voting
    ```
 
-2. **Set up environment variables**:
+2. **Configure environment**:
    ```bash
    cp env.example .env
-   # Edit .env and add your Google Drive API key
+   # Edit .env with your API keys (see API Setup section below)
    ```
 
-3. **Start the development environment**:
+3. **Start development environment**:
    ```bash
    docker-compose -f docker-compose.dev.yml up --build
    ```
 
 4. **Access the application**:
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:3123
    - Backend API: http://localhost:8000
 
-> **Note**: The frontend is now in its own `frontend/` directory, and the backend is in the `backend/` directory. Docker Compose handles the orchestration automatically.
+### Production Deployment with ngrok
 
-### Local Development (without Docker)
-
-#### Prerequisites
-- Node.js (version 16 or higher)
-- Python 3.11+
-- npm or yarn package manager
-
-#### Frontend Setup
-1. **Navigate to frontend directory**:
+1. **Set up environment variables for production**:
    ```bash
-   cd frontend
+   # Update .env with production values
+   GOOGLE_CLIENT_ID=your_client_id
+   GOOGLE_CLIENT_SECRET=your_client_secret
+   OPENAI_API_KEY=your_openai_key
+   REDIRECT_URI=https://your-ngrok-domain.ngrok-free.app/auth/callback
    ```
 
-2. **Install frontend dependencies**:
+2. **Start the application**:
    ```bash
-   npm install
+   docker-compose up --build -d
    ```
 
-3. **Start the development server**:
+3. **Expose with ngrok**:
    ```bash
-   npm run dev
+   ngrok http 80
    ```
 
-#### Backend Setup
-1. **Navigate to backend directory**:
-   ```bash
-   cd backend
-   ```
+4. **Update redirect URI**:
+   - Copy your ngrok URL (e.g., `https://abc123.ngrok-free.app`)
+   - Update `REDIRECT_URI` in your `.env` file
+   - Update the redirect URI in your Google Cloud Console
+   - Restart the application
 
-2. **Install Python dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### API Setup (Required for Production)
 
-3. **Set environment variable**:
-   ```bash
-   export GOOGLE_DRIVE_API_KEY=your_api_key_here
-   ```
-
-4. **Start the FastAPI server**:
-   ```bash
-   uvicorn main:app --reload
-   ```
-
-### Google Drive API Setup (For Production)
-
-To enable real Google Drive integration, you'll need to:
+#### Google OAuth2 Setup
 
 1. **Create a Google Cloud Project**:
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project or select an existing one
 
-2. **Enable Google Drive API**:
+2. **Enable Required APIs**:
    - Navigate to "APIs & Services" > "Library"
-   - Search for "Google Drive API" and enable it
+   - Enable "Google Drive API"
+   - Enable "Google OAuth2 API"
 
-3. **Create API Credentials**:
+3. **Create OAuth2 Credentials**:
    - Go to "APIs & Services" > "Credentials"
-   - Click "Create Credentials" > "API Key"
-   - Copy your API key
+   - Click "Create Credentials" > "OAuth 2.0 Client IDs"
+   - Set authorized redirect URIs (e.g., `http://localhost:8000/auth/callback`)
+   - Copy your Client ID and Client Secret
 
-4. **Update the Application**:
-   - Replace `YOUR_API_KEY` in the code with your actual API key
-   - Consider using environment variables for security
+4. **Configure Environment Variables**:
+   ```bash
+   GOOGLE_CLIENT_ID=your_client_id_here
+   GOOGLE_CLIENT_SECRET=your_client_secret_here
+   REDIRECT_URI=http://localhost:8000/auth/callback
+   ```
+
+#### OpenAI API Setup (For AI Features)
+
+1. **Get OpenAI API Key**:
+   - Go to [OpenAI Platform](https://platform.openai.com/)
+   - Create an account and get your API key
+
+2. **Configure Environment Variable**:
+   ```bash
+   OPENAI_API_KEY=sk-your_openai_api_key_here
+   ```
 
 ## Usage Guide
 
 ### Getting Started
 
-1. **Enter Your Name**: When you first open the app, enter your name to identify your votes and comments.
+1. **Authenticate with Google**:
+   - Click "Authorize with Google" to connect your Google Drive account
+   - Grant permissions for Drive access and user profile
+   - You'll be redirected back to the app once authenticated
 
 2. **Connect Google Drive Folder**:
    - Create a folder in Google Drive containing CV files (PDF format)
-   - Share the folder with "Anyone with the link can view" permissions
    - Copy the folder URL and paste it into the app
+   - The app will automatically load all PDF files from the folder
 
-3. **Start Voting**:
-   - The app will load all PDF files from the folder
-   - Click "Preview CV" to view each document
-   - Rate each CV using the star system (1-5 stars)
-   - Add comments with your feedback
+3. **Start Evaluating CVs**:
+   - **Rate CVs**: Use the star system (1-5 stars) to rate each CV
+   - **Add Comments**: Provide detailed feedback on each CV
+   - **Edit Comments**: Click the edit icon to modify your comments
+   - **Preview CVs**: Click "Preview CV" to view documents in a modal
+   - **Auto-save**: Your votes and comments are automatically saved
+
+### AI-Powered Features
+
+#### AI CV Grading
+1. **Click "Grade with AI"** on any CV
+2. **Provide a position description** that describes the role requirements
+3. **Select language** for the AI analysis (English, Polish, Spanish, French, German)
+4. **Get instant feedback** with a rating (1-5) and detailed analysis
+5. **AI comments are added automatically** and labeled as "Grading bot"
+
+#### Smart Letter Generation
+1. **Generate Rejection Letters**:
+   - Click "Generate Rejection Letter" for any CV
+   - Choose language and customize company/position details
+   - AI generates a professional, personalized rejection letter
+   - Based on average rating and reviewer comments
+
+2. **Generate Acceptance Letters**:
+   - Click "Generate Acceptance Letter" for highly-rated CVs
+   - Customize company and position information
+   - AI creates welcoming, enthusiastic acceptance letters
+   - Incorporates positive feedback from reviewers
+
+#### Collaboration Features
+- **Refresh Scores**: Click "Refresh Scores" to see latest votes from team members
+- **Real-time Updates**: Auto-save ensures everyone sees current data
+- **Comment Editing**: Edit or delete your own comments anytime
+- **Multi-user Support**: Multiple team members can evaluate simultaneously
 
 ### Collaboration Features
 
@@ -222,42 +236,19 @@ cv-voting/
 └── README.md                    # This file
 ```
 
-## Development Scripts
+## Useful Commands
 
-### Frontend Scripts (run from frontend/ directory)
-- `npm run dev`: Start development server
-- `npm run build`: Build for production
-- `npm run preview`: Preview production build
+### Development
+- `docker-compose -f docker-compose.dev.yml up --build`: Start development with rebuild
+- `docker-compose -f docker-compose.dev.yml down`: Stop development environment
+- `docker-compose -f docker-compose.dev.yml logs backend`: View backend logs
+- `docker-compose -f docker-compose.dev.yml logs frontend`: View frontend logs
 
-### Docker Commands
-- `docker-compose up`: Start production environment
-- `docker-compose -f docker-compose.dev.yml up`: Start development environment
-- `docker-compose down`: Stop all services
-- `docker-compose logs backend`: View backend logs
-- `docker-compose logs frontend`: View frontend logs
-
-### Backend Commands (if running locally)
-- `uvicorn main:app --reload`: Start FastAPI development server
-- `python main.py`: Alternative way to start the server
-
-## Production Deployment
-
-The application is fully containerized and ready for production deployment:
-
-1. **Set up environment variables**:
-   - Copy `env.example` to `.env`
-   - Add your Google Drive API key
-   - Configure any additional environment variables
-
-2. **Deploy with Docker Compose**:
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Behind a reverse proxy** (recommended):
-   - Configure your reverse proxy to forward requests to port 3000
-   - Set up SSL/TLS termination
-   - Configure domain routing
+### Production
+- `docker-compose up --build -d`: Start production environment
+- `docker-compose down`: Stop production environment
+- `docker-compose logs`: View all logs
+- `ngrok http 80`: Expose local port 80 to internet
 
 ## Customization
 
@@ -291,9 +282,30 @@ For production deployment:
 
 ### Common Issues
 
-1. **Google Drive API Errors**: Ensure your API key is valid and the Drive API is enabled
-2. **CORS Issues**: Make sure your domain is authorized in Google Cloud Console
-3. **File Access**: Verify that the Google Drive folder has proper sharing permissions
+1. **Google OAuth2 Errors**: 
+   - Ensure your Client ID and Client Secret are correct
+   - Verify redirect URIs are properly configured in Google Cloud Console
+   - Check that Google Drive API and OAuth2 API are enabled
+
+2. **AI Features Not Working**: 
+   - Verify your OpenAI API key is valid and has sufficient credits
+   - Check that the OPENAI_API_KEY environment variable is properly set
+   - Ensure you have access to GPT-4 API (required for AI grading)
+
+3. **Authentication Issues**: 
+   - Clear browser cookies and local storage if stuck in auth loop
+   - Verify the REDIRECT_URI matches your Google Cloud Console settings
+   - Check that your domain is authorized in Google Cloud Console
+
+4. **File Access Problems**: 
+   - Ensure the user has access to the Google Drive folder
+   - Verify that PDF files are properly formatted and not corrupted
+   - Check that the folder URL is correct and publicly accessible
+
+5. **Database Connection**: 
+   - Verify PostgreSQL is running (check Docker containers)
+   - Ensure DATABASE_URL environment variable is correct
+   - Check database permissions and connectivity
 
 ### Support
 

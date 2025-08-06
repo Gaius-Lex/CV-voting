@@ -167,6 +167,28 @@ const DriveVotingApp = () => {
     }
   };
 
+  // Refresh scores from drive
+  const refreshScores = async () => {
+    if (!folderId || !userId) {
+      setError('No folder loaded or user not authenticated');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      await loadScoresFromDrive(folderId);
+      
+      setError('✅ Scores refreshed successfully!');
+      setTimeout(() => setError(''), 3000);
+    } catch (err) {
+      setError('Failed to refresh scores: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Save scores via backend API
   const saveScoresToDrive = async (showSuccessMessage = true) => {
     try {
@@ -309,7 +331,7 @@ const DriveVotingApp = () => {
 
   // Save edited comment
   const saveEditComment = (docId, voter) => {
-    if (!editCommentText.trim()) {
+    if (!editCommentText || !editCommentText.trim()) {
       // If empty, delete the comment
       deleteComment(docId, voter);
     } else {
@@ -552,6 +574,17 @@ const DriveVotingApp = () => {
                   >
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Manual Save
+                  </button>
+                  
+                  {/* Refresh scores button */}
+                  <button
+                    onClick={refreshScores}
+                    disabled={loading || autoSaving}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm"
+                    title="Refresh scores from Google Drive"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh Scores
                   </button>
                 </>
               )}
@@ -1207,13 +1240,13 @@ const DriveVotingApp = () => {
                         </div>
                       ) : (
                         <textarea
-                          value={newComment}
-                          onChange={(e) => setNewComment(e.target.value)}
+                          value={newComment[selectedDoc.id] || ''}
+                          onChange={(e) => setNewComment(prev => ({ ...prev, [selectedDoc.id]: e.target.value }))}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.ctrlKey) {
                               e.preventDefault();
-                              handleComment(selectedDoc.id, newComment);
-                              setNewComment('');
+                              handleComment(selectedDoc.id, newComment[selectedDoc.id]);
+                              setNewComment(prev => ({ ...prev, [selectedDoc.id]: '' }));
                             }
                           }}
                           className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
@@ -1222,11 +1255,11 @@ const DriveVotingApp = () => {
                         />
                       )}
                       
-                      {!getUserComment(selectedDoc.id) && newComment.trim() && (
+                      {!getUserComment(selectedDoc.id) && newComment[selectedDoc.id]?.trim() && (
                         <button
                           onClick={() => {
-                            handleComment(selectedDoc.id, newComment);
-                            setNewComment('');
+                            handleComment(selectedDoc.id, newComment[selectedDoc.id]);
+                            setNewComment(prev => ({ ...prev, [selectedDoc.id]: '' }));
                           }}
                           className="mt-2 px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 transition-colors"
                         >
