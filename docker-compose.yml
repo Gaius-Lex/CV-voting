@@ -21,7 +21,7 @@ services:
     container_name: cv-voting-backend
     environment:
       - GOOGLE_CLIENT_SECRETS_FILE=credentials.json
-      - REDIRECT_URI=http://localhost:80/api/auth/callback
+      - REDIRECT_URI=${PROD_DOMAIN}/api/auth/callback
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DATABASE_URL=postgresql://cvvoting:cvvoting@db:5432/cvvoting
     volumes:
@@ -43,6 +43,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: cv-voting-frontend
+    environment:
+      - VITE_API_BASE_URL=${PROD_DOMAIN}
     volumes:
       - frontend_build:/usr/share/nginx/html
     networks:
