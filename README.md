@@ -2,6 +2,8 @@
 
 A collaborative CV evaluation and voting application with AI-powered features that integrates with Google Drive for document management and automated score tracking.
 
+![CV Voting App](./screenshot.png)
+
 ## Features
 
 ### Core Functionality
