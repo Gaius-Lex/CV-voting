@@ -60,6 +60,10 @@ SCOPES = [
     'https://www.googleapis.com/auth/userinfo.profile',
     'https://www.googleapis.com/auth/userinfo.email'
 ]
+
+# Google OAuth2 credentials - can be loaded from .env or credentials.json
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_CLIENT_SECRETS_FILE = os.getenv("GOOGLE_CLIENT_SECRETS_FILE", "credentials.json")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8000/auth/callback")
 
@@ -178,17 +182,35 @@ async def health_check():
 async def get_auth_url():
     """Get Google OAuth2 authorization URL"""
     try:
-        if not os.path.exists(GOOGLE_CLIENT_SECRETS_FILE):
-            logger.error(f"Google client secrets file not found: {GOOGLE_CLIENT_SECRETS_FILE}")
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Google client secrets file not found: {GOOGLE_CLIENT_SECRETS_FILE}"
+        # Try to use environment variables first, fall back to credentials.json
+        if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+            # Create flow from environment variables
+            client_config = {
+                "web": {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [REDIRECT_URI]
+                }
+            }
+            flow = Flow.from_client_config(client_config, scopes=SCOPES)
+            logger.info("Using Google OAuth credentials from environment variables")
+        else:
+            # Fall back to credentials.json file
+            if not os.path.exists(GOOGLE_CLIENT_SECRETS_FILE):
+                logger.error(f"Google client secrets file not found: {GOOGLE_CLIENT_SECRETS_FILE}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables or provide {GOOGLE_CLIENT_SECRETS_FILE}"
+                )
+            
+            flow = Flow.from_client_secrets_file(
+                GOOGLE_CLIENT_SECRETS_FILE,
+                scopes=SCOPES
             )
+            logger.info(f"Using Google OAuth credentials from file: {GOOGLE_CLIENT_SECRETS_FILE}")
         
-        flow = Flow.from_client_secrets_file(
-            GOOGLE_CLIENT_SECRETS_FILE,
-            scopes=SCOPES
-        )
         flow.redirect_uri = REDIRECT_URI
         
         authorization_url, state = flow.authorization_url(
@@ -211,10 +233,25 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
         if not code:
             raise HTTPException(status_code=400, detail="Authorization code not found")
         
-        flow = Flow.from_client_secrets_file(
-            GOOGLE_CLIENT_SECRETS_FILE,
-            scopes=SCOPES
-        )
+        # Use the same logic as get_auth_url for consistency
+        if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+            # Create flow from environment variables
+            client_config = {
+                "web": {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [REDIRECT_URI]
+                }
+            }
+            flow = Flow.from_client_config(client_config, scopes=SCOPES)
+        else:
+            # Fall back to credentials.json file
+            flow = Flow.from_client_secrets_file(
+                GOOGLE_CLIENT_SECRETS_FILE,
+                scopes=SCOPES
+            )
         flow.redirect_uri = REDIRECT_URI
         
         # Exchange authorization code for credentials
