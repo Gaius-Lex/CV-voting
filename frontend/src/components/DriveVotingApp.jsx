@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, FileText, Download, Users, BarChart3, MessageSquare, Save, RefreshCw, Shield, Sparkles, Copy, Mail, X, Edit3, Trash2, Check, Bot, Zap } from 'lucide-react';
+import { Star, FileText, Download, Users, BarChart3, MessageSquare, Save, RefreshCw, Shield, Sparkles, Copy, Mail, X, Edit3, Trash2, Check, Bot, Zap, Plus, List, GripVertical } from 'lucide-react';
 
 const DriveVotingApp = () => {
   const [userId, setUserId] = useState('');
@@ -26,6 +26,23 @@ const DriveVotingApp = () => {
   const [useAI, setUseAI] = useState(false);
   const [gradingModal, setGradingModal] = useState(null);
   const [positionDescription, setPositionDescription] = useState('');
+  
+  // Queue management state
+  const [queue, setQueue] = useState([]);
+
+  // Handle escape key to close modals
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedDoc(null);
+        setRejectionModal(null);
+        setGradingModal(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, []);
 
   // Check authentication status on page load
   useEffect(() => {
@@ -189,6 +206,103 @@ const DriveVotingApp = () => {
     }
   };
 
+  // Load queue from backend API
+  const loadQueueFromDrive = async (folderId) => {
+    if (!userId) return;
+    
+    try {
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${apiUrl}/queue/${folderId}?user_id=${encodeURIComponent(userId)}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setQueue(data.queue || []);
+      }
+    } catch (err) {
+      console.log('No existing queue found, starting fresh');
+    }
+  };
+
+  // Save queue to backend API
+  const saveQueueToDrive = async () => {
+    if (!folderId || !userId) return;
+    
+    try {
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${apiUrl}/queue/${folderId}?user_id=${encodeURIComponent(userId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          queue
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to save queue:', errorData.detail || 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Failed to save queue:', err.message);
+    }
+  };
+
+  // Add document to queue
+  const addToQueue = async (doc) => {
+    // Check if document is already in queue
+    if (queue.find(item => item.id === doc.id)) {
+      setError('Document is already in the queue');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    const newQueue = [...queue, {
+      id: doc.id,
+      name: doc.name,
+      webViewLink: doc.webViewLink,
+      webContentLink: doc.webContentLink,
+      addedAt: new Date().toISOString()
+    }];
+
+    setQueue(newQueue);
+    
+    // Auto-save queue
+    try {
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+      await fetch(`${apiUrl}/queue/${folderId}?user_id=${encodeURIComponent(userId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          queue: newQueue
+        })
+      });
+      
+      setError('✅ Added to queue!');
+      setTimeout(() => setError(''), 2000);
+    } catch (err) {
+      setError('Failed to save queue: ' + err.message);
+    }
+  };
+
+  // Remove document from queue
+  const removeFromQueue = async (docId) => {
+    const newQueue = queue.filter(item => item.id !== docId);
+    setQueue(newQueue);
+    await saveQueueToDrive();
+  };
+
+  // Reorder queue items
+  const reorderQueue = async (fromIndex, toIndex) => {
+    const newQueue = [...queue];
+    const [removed] = newQueue.splice(fromIndex, 1);
+    newQueue.splice(toIndex, 0, removed);
+    setQueue(newQueue);
+    await saveQueueToDrive();
+  };
+
   // Save scores via backend API
   const saveScoresToDrive = async (showSuccessMessage = true) => {
     try {
@@ -269,8 +383,9 @@ const DriveVotingApp = () => {
         const documents = await response.json();
         setDocuments(documents);
         
-        // Load existing scores
+        // Load existing scores and queue
         await loadScoresFromDrive(folderId);
+        await loadQueueFromDrive(folderId);
       } else {
         const errorData = await response.json();
         setError('Failed to load documents: ' + (errorData.detail || 'Unknown error'));
@@ -586,6 +701,12 @@ const DriveVotingApp = () => {
                     <RefreshCw className="w-4 h-4" />
                     Refresh Scores
                   </button>
+                  
+                  {/* Queue info display */}
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <List className="w-4 h-4 text-purple-600" />
+                    <span>Queue: {queue.length} CV{queue.length !== 1 ? 's' : ''}</span>
+                  </div>
                 </>
               )}
               <div className="flex items-center gap-3 text-sm text-gray-600">
@@ -608,17 +729,20 @@ const DriveVotingApp = () => {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6">
+      <div>
         {/* Error/Success Message */}
         {error && (
-          <div className={`mb-6 p-4 rounded-lg ${error.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {error}
+          <div className="max-w-5xl mx-auto px-6 mb-6">
+            <div className={`p-4 rounded-lg ${error.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {error}
+            </div>
           </div>
         )}
 
         {/* Authentication Required */}
         {!isAuthenticated && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="max-w-5xl mx-auto px-6 mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="text-center mb-6">
               <Shield className="w-12 h-12 text-indigo-600 mx-auto mb-4" />
               <h2 className="text-lg font-semibold mb-2">Google Drive Authentication Required</h2>
@@ -642,12 +766,14 @@ const DriveVotingApp = () => {
                 <li>View and download CV documents</li>
               </ul>
             </div>
+            </div>
           </div>
         )}
 
         {/* Drive Link Input */}
         {isAuthenticated && documents.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="max-w-5xl mx-auto px-6 mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">Connect Google Drive Folder</h2>
             <form onSubmit={handleDriveLink} className="flex gap-4">
               <input
@@ -677,6 +803,7 @@ const DriveVotingApp = () => {
                   <li>You'll need to set up Google Drive API credentials for production use</li>
                 </ol>
               </div>
+            </div>
             </div>
           </div>
         )}
@@ -711,27 +838,61 @@ const DriveVotingApp = () => {
           </div>
         )}
 
-        {/* Documents Grid */}
+        {/* Documents and Queue Layout */}
         {isAuthenticated && documents.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex gap-0" style={{ height: 'calc(100vh - 60px)' }}>
+            {/* Documents Grid Container */}
+            <div className="flex-1 py-6 overflow-y-auto">
+              <div className="max-w-5xl mx-auto px-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {documents.map((doc) => (
               <div key={doc.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
                 <div className="p-6">
                   <div className="flex items-start gap-3 mb-4">
-                    <FileText className="w-8 h-8 text-red-500 flex-shrink-0 mt-1" />
+                    {/* PDF Thumbnail */}
+                    <div className="flex-shrink-0">
+                      <div className="w-12 h-16 bg-gray-100 border border-gray-200 rounded overflow-hidden relative">
+                        <iframe
+                          src={`${doc.webViewLink.replace('/view', '/preview')}#view=FitH&toolbar=0&navpanes=0&scrollbar=0&page=1`}
+                          className="w-full h-full scale-[0.3] origin-top-left pointer-events-none"
+                          style={{ width: '400%', height: '400%' }}
+                          title={`Preview of ${doc.name}`}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
+                      </div>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-900 truncate">{doc.name}</h3>
                       <p className="text-sm text-gray-500">CV Document</p>
                     </div>
                   </div>
 
-                  {/* Preview Button */}
-                  <button
-                    onClick={() => setSelectedDoc(doc)}
-                    className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors mb-4"
-                  >
-                    Preview CV
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="space-y-2 mb-4">
+                    <button
+                      onClick={() => setSelectedDoc(doc)}
+                      className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Preview CV
+                    </button>
+                    <button
+                      onClick={() => addToQueue(doc)}
+                      disabled={queue.find(item => item.id === doc.id)}
+                      className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {queue.find(item => item.id === doc.id) ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          In Queue
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Add to Queue
+                        </>
+                      )}
+                    </button>
+                  </div>
 
                   {/* Your Rating */}
                   <div className="mb-4">
@@ -949,13 +1110,116 @@ const DriveVotingApp = () => {
                 </div>
               </div>
             ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Queue Sidebar */}
+            <div className="w-80 bg-white shadow-sm border-l border-t border-b h-full flex flex-col">
+              <div className="bg-purple-600 text-white p-4 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <List className="w-5 h-5" />
+                  <h3 className="font-semibold">CV Queue ({queue.length})</h3>
+                </div>
+              </div>
+
+              <div className="p-4 flex-1 overflow-y-auto">
+                {queue.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    <List className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No CVs in queue</p>
+                    <p className="text-sm mt-2">Click "Add to Queue" on any CV to get started</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {queue.map((doc, index) => (
+                      <div
+                        key={doc.id}
+                        className="bg-gray-50 rounded-lg p-3 border hover:shadow-sm transition-shadow"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex items-center gap-2 text-gray-400">
+                            <span className="text-sm font-medium">{index + 1}</span>
+                            <GripVertical className="w-4 h-4 cursor-move" />
+                          </div>
+                          
+                          {/* Small PDF Thumbnail for Queue */}
+                          <div className="flex-shrink-0">
+                            <div className="w-6 h-8 bg-gray-100 border border-gray-200 rounded overflow-hidden relative">
+                              <iframe
+                                src={`${doc.webViewLink.replace('/view', '/preview')}#view=FitH&toolbar=0&navpanes=0&scrollbar=0&page=1`}
+                                className="w-full h-full scale-[0.15] origin-top-left pointer-events-none"
+                                style={{ width: '667%', height: '667%' }}
+                                title={`Preview of ${doc.name}`}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 text-sm truncate">{doc.name}</h4>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Added {new Date(doc.addedAt).toLocaleDateString()}
+                            </p>
+                            
+                            {/* Quick Actions */}
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => setSelectedDoc(doc)}
+                                className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300 transition-colors"
+                              >
+                                Preview
+                              </button>
+                              <button
+                                onClick={() => removeFromQueue(doc.id)}
+                                className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+                             {/* Queue Actions */}
+               {queue.length > 0 && (
+                 <div className="border-t p-4 bg-gray-50 flex-shrink-0">
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        setQueue([]);
+                        saveQueueToDrive();
+                      }}
+                      className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                    >
+                      Clear Queue
+                    </button>
+                    <p className="text-xs text-gray-500 text-center">
+                      Drag items to reorder • {queue.length} CV{queue.length !== 1 ? 's' : ''} in queue
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* AI Rejection Letter Modal */}
         {rejectionModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-5/6 flex flex-col">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setRejectionModal(null);
+              setRejectionLetter(null);
+            }}
+          >
+            <div 
+              className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-5/6 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Sparkles className={`w-5 h-5 ${rejectionModal.letterType === 'acceptance' ? 'text-emerald-600' : 'text-amber-600'}`} />
@@ -1122,8 +1386,14 @@ const DriveVotingApp = () => {
 
         {/* Document Preview Modal */}
         {selectedDoc && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-5/6 flex flex-col">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={() => setSelectedDoc(null)}
+          >
+            <div 
+              className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-5/6 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold">{selectedDoc.name}</h3>
                 <div className="flex gap-2">
@@ -1351,8 +1621,14 @@ const DriveVotingApp = () => {
 
         {/* Grading Agent Modal */}
         {gradingModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-5/6 flex flex-col">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={() => setGradingModal(null)}
+          >
+            <div 
+              className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-5/6 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Bot className="w-5 h-5 text-blue-600" />
@@ -1436,6 +1712,8 @@ const DriveVotingApp = () => {
           </div>
         )}
       </div>
+
+
     </div>
   );
 };

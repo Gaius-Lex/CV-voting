@@ -501,6 +501,92 @@ async def submit_vote(vote: VoteRequest):
     
     return {"message": "Vote received", "vote": vote.dict()}
 
+@app.get("/queue/{folder_id}")
+async def get_queue(folder_id: str, user_id: str, db: Session = Depends(get_db)):
+    """Load existing queue from queue.txt in the Google Drive folder"""
+    try:
+        service = get_google_drive_service(user_id, db)
+        
+        # Find queue.txt file
+        query = f"'{folder_id}' in parents and name='queue.txt'"
+        results = service.files().list(q=query).execute()
+        files = results.get('files', [])
+        
+        if not files:
+            return {"queue": []}
+        
+        # Download the txt content
+        queue_file_id = files[0]['id']
+        request = service.files().get_media(fileId=queue_file_id)
+        
+        # Execute the request and get content
+        txt_content = request.execute().decode('utf-8')
+        
+        # Parse the queue data (JSON format)
+        try:
+            queue_data = json.loads(txt_content) if txt_content.strip() else []
+            return {"queue": queue_data}
+        except json.JSONDecodeError:
+            logger.error("Failed to parse queue.txt content")
+            return {"queue": []}
+        
+    except Exception as e:
+        logger.exception("Failed to load queue")
+        # Return empty queue on error
+        return {"queue": []}
+
+@app.post("/queue/{folder_id}")
+async def save_queue(folder_id: str, queue_data: dict[str, Any], user_id: str, db: Session = Depends(get_db)):
+    """Save queue to queue.txt in the Google Drive folder"""
+    try:
+        service = get_google_drive_service(user_id, db)
+        
+        queue = queue_data.get("queue", [])
+        
+        # Create JSON content
+        json_content = json.dumps(queue, indent=2)
+        
+        # Check if queue.txt already exists
+        query = f"'{folder_id}' in parents and name='queue.txt'"
+        results = service.files().list(q=query).execute()
+        existing_files = results.get('files', [])
+        
+        # Create media upload
+        media = MediaIoBaseUpload(
+            io.BytesIO(json_content.encode('utf-8')),
+            mimetype='text/plain'
+        )
+        
+        if existing_files:
+            # Update existing file
+            file_id = existing_files[0]['id']
+            logger.info(f"Updating existing queue file with ID: {file_id}")
+            result = service.files().update(
+                fileId=file_id,
+                media_body=media
+            ).execute()
+            logger.info(f"Update result: {result}")
+        else:
+            # Create new file
+            file_metadata = {
+                'name': 'queue.txt',
+                'parents': [folder_id]
+            }
+            logger.info(f"Creating new queue file in folder: {folder_id}")
+            result = service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id'
+            ).execute()
+            logger.info(f"Create result: {result}")
+        
+        logger.info("Queue file saved successfully to Google Drive")
+        return {"message": "Queue saved successfully"}
+        
+    except Exception as e:
+        logger.exception("Failed to save queue")
+        raise HTTPException(status_code=500, detail=f"Failed to save queue: {str(e)}")
+
 @app.post("/generate-rejection", response_model=RejectionResponse)
 async def generate_rejection_letter(request: RejectionRequest):
     """Generate AI-powered rejection letter based on comments and ratings"""
