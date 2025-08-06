@@ -30,8 +30,10 @@ A collaborative CV evaluation and voting application that integrates with Google
 
 ### Infrastructure
 - **Docker & Docker Compose**: Containerization and orchestration
-- **Nginx**: Reverse proxy and static file serving
+- **Nginx**: Reverse proxy, static file serving, and API routing
+- **PostgreSQL**: Database for user sessions and authentication
 - **Google Drive API**: Document storage and management
+- **Google OAuth2**: Secure authentication
 
 ## Setup Instructions
 
@@ -41,7 +43,39 @@ A collaborative CV evaluation and voting application that integrates with Google
 - Google Drive account
 - Google Drive API key
 
-### Quick Start with Docker
+### Production Deployment
+
+For production deployment with unified nginx proxy:
+
+1. **Clone or navigate to the project directory**:
+   ```bash
+   cd misc/cv-voting
+   ```
+
+2. **Set up environment variables**:
+   ```bash
+   cp env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. **Build and start the production environment**:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+4. **Access the application**:
+   - Frontend: http://localhost:80
+   - API: http://localhost:80/api/*
+   - All requests are handled by nginx proxy
+
+5. **Test the setup**:
+   ```bash
+   ./test-production.sh
+   ```
+
+### Development Setup
+
+For local development with hot reloading:
 
 1. **Clone or navigate to the project directory**:
    ```bash
@@ -54,16 +88,14 @@ A collaborative CV evaluation and voting application that integrates with Google
    # Edit .env and add your Google Drive API key
    ```
 
-3. **Start with Docker Compose**:
+3. **Start the development environment**:
    ```bash
-   # For development (with hot reloading)
-   docker-compose -f docker-compose.dev.yml up
-
-   # For production
-   docker-compose up
+   docker-compose -f docker-compose.dev.yml up --build
    ```
 
-4. **Open your browser** and navigate to `http://localhost:3123`
+4. **Access the application**:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
 
 > **Note**: The frontend is now in its own `frontend/` directory, and the backend is in the `backend/` directory. Docker Compose handles the orchestration automatically.
 

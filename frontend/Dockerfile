@@ -15,19 +15,10 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM alpine:latest
 
 # Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/dist /build
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Expose port
-EXPOSE 80
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
-
-CMD ["nginx", "-g", "daemon off;"] 
+# Copy build files to shared volume and exit
+CMD ["sh", "-c", "cp -r /build/* /usr/share/nginx/html/ && echo 'Frontend build copied to shared volume' && sleep infinity"] 

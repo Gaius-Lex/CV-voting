@@ -535,7 +535,7 @@ Do not include company letterhead, addresses, or dates - just the letter content
 
         # Generate letter using OpenAI
         response = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a professional HR expert who writes empathetic and constructive rejection letters."},
                 {"role": "user", "content": prompt}
@@ -635,7 +635,7 @@ Do not include company letterhead, addresses, or dates - just the letter content
 
         # Generate letter using OpenAI
         response = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a professional HR expert who writes welcoming and enthusiastic job offer letters."},
                 {"role": "user", "content": prompt}
@@ -754,7 +754,7 @@ COMMENT: [Your detailed evaluation]"""
 
         # Generate evaluation using OpenAI
         response = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": f"You are a professional HR expert and CV evaluator. Provide thorough, objective assessments in {lang_config['prompt_lang']}."},
                 {"role": "user", "content": prompt}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, FileText, Download, Users, BarChart3, MessageSquare, Save, RefreshCw, Shield, Sparkles, Copy, Mail, X, Edit3, Trash2, Check } from 'lucide-react';
+import { Star, FileText, Download, Users, BarChart3, MessageSquare, Save, RefreshCw, Shield, Sparkles, Copy, Mail, X, Edit3, Trash2, Check, Bot, Zap } from 'lucide-react';
 
 const DriveVotingApp = () => {
   const [userId, setUserId] = useState('');
@@ -24,6 +24,8 @@ const DriveVotingApp = () => {
   const [editingComment, setEditingComment] = useState(null); // {docId, voter}
   const [editCommentText, setEditCommentText] = useState('');
   const [useAI, setUseAI] = useState(false);
+  const [gradingModal, setGradingModal] = useState(null);
+  const [positionDescription, setPositionDescription] = useState('');
 
   // Check authentication status on page load
   useEffect(() => {
@@ -271,17 +273,17 @@ const DriveVotingApp = () => {
     }
   };
 
-  const handleVote = (docId, rating) => {
+  const handleVote = (docId, rating, voter = userName) => {
     setVotes(prev => ({
       ...prev,
       [docId]: {
         ...prev[docId],
-        [userName]: rating
+        [voter]: rating
       }
     }));
   };
 
-  const handleComment = (docId, comment) => {
+  const handleComment = (docId, comment, voter = userName) => {
     // Don't save empty comments
     if (!comment || !comment.trim()) {
       return;
@@ -291,10 +293,12 @@ const DriveVotingApp = () => {
       ...prev,
       [docId]: {
         ...prev[docId],
-        [userName]: comment.trim()
+        [voter]: comment.trim()
       }
     }));
-    setNewComment(prev => ({ ...prev, [docId]: '' }));
+    if (voter === userName) {
+      setNewComment(prev => ({ ...prev, [docId]: '' }));
+    }
   };
 
   // Start editing a comment
@@ -419,6 +423,51 @@ const DriveVotingApp = () => {
   // Legacy function for backward compatibility
   const generateRejectionLetter = async (doc, language = 'en', companyName = 'Our Company', position = 'this position') => {
     return generateLetter(doc, 'rejection', language, companyName, position);
+  };
+
+  // Grading agent function
+  const gradeCV = async (doc, positionDesc, language = 'en') => {
+    if (!positionDesc.trim()) {
+      setError('Please provide a position description');
+      return;
+    }
+
+    setGeneratingLetter(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+      
+      const response = await fetch(`${apiUrl}/grade-cv?user_id=${encodeURIComponent(userId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_id: doc.id,
+          document_name: doc.name,
+          position_description: positionDesc,
+          language: language
+        })
+      });
+      
+      if (response.ok) {
+        const gradingData = await response.json();
+        
+        // Add the grading bot comment and rating
+        handleComment(doc.id, gradingData.comment, 'Grading bot');
+        handleVote(doc.id, gradingData.rating, 'Grading bot');
+        
+        setGradingModal(null);
+        setError('✅ CV has been graded by the AI agent!');
+        setTimeout(() => setError(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError('Failed to grade CV: ' + (errorData.detail || 'Unknown error'));
+      }
+    } catch (err) {
+      setError('Failed to grade CV: ' + err.message);
+    } finally {
+      setGeneratingLetter(false);
+    }
   };
 
   // Copy letter to clipboard
@@ -594,6 +643,28 @@ const DriveVotingApp = () => {
                   <li>The app will create a "scores.csv" file in your folder to store voting data</li>
                   <li>You'll need to set up Google Drive API credentials for production use</li>
                 </ol>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Position Description Section */}
+        {useAI && isAuthenticated && (
+          <div className="max-w-6xl mx-auto px-4 mb-6">
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Bot className="w-5 h-5 text-blue-600" />
+                Position Description for AI Grading
+              </h2>
+              <textarea
+                value={positionDescription}
+                onChange={(e) => setPositionDescription(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                rows="4"
+                placeholder="Describe the position requirements, key skills, experience needed, etc. This will help the AI agent grade CVs more accurately..."
+              />
+              <div className="mt-2 text-sm text-gray-600">
+                💡 The more detailed your position description, the more accurate the AI grading will be.
               </div>
             </div>
           </div>
@@ -831,6 +902,13 @@ const DriveVotingApp = () => {
                         >
                           <Sparkles className="w-4 h-4" />
                           Generate Acceptance Letter
+                        </button>
+                          <button
+                          onClick={() => setGradingModal(doc)}
+                          className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm"
+                        >
+                          <Bot className="w-4 h-4" />
+                          Grade with AI
                         </button>
                       </div>
                     )}
@@ -1231,6 +1309,93 @@ const DriveVotingApp = () => {
                         )}
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Grading Agent Modal */}
+        {gradingModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-5/6 flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-blue-600" />
+                  AI CV Grading Agent
+                </h3>
+                <button
+                  onClick={() => setGradingModal(null)}
+                  className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Document: {gradingModal.name}</h4>
+                    <p className="text-sm text-blue-700">
+                      The AI agent will analyze this CV against your position description and provide a detailed evaluation with a rating.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Position Description:</h4>
+                    <div className="text-sm text-gray-700 max-h-32 overflow-y-auto bg-white p-3 rounded border">
+                      {positionDescription}
+                    </div>
+                  </div>
+                  
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    gradeCV(
+                      gradingModal,
+                      positionDescription,
+                      formData.get('language')
+                    );
+                  }}>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Language for Analysis
+                      </label>
+                      <select 
+                        name="language"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        defaultValue="en"
+                      >
+                        <option value="en">English</option>
+                        <option value="pl">Polish</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                      </select>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      disabled={generatingLetter}
+                      className="w-full mt-4 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {generatingLetter ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Analyzing CV...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4" />
+                          Start AI Analysis
+                        </>
+                      )}
+                    </button>
+                  </form>
+                  
+                  <div className="text-xs text-gray-500">
+                    ⚡ The AI will read the PDF content and provide a detailed assessment with rating (1-5 stars) and comments as "Grading bot".
                   </div>
                 </div>
               </div>

@@ -19,11 +19,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: cv-voting-backend
-    ports:
-      - "8000:8000"
     environment:
       - GOOGLE_CLIENT_SECRETS_FILE=credentials.json
-      - REDIRECT_URI=http://localhost:8000/auth/callback
+      - REDIRECT_URI=http://localhost:80/api/auth/callback
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DATABASE_URL=postgresql://cvvoting:cvvoting@db:5432/cvvoting
     volumes:
@@ -45,19 +43,32 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: cv-voting-frontend
+    volumes:
+      - frontend_build:/usr/share/nginx/html
+    networks:
+      - cv-voting-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: cv-voting-nginx
     ports:
-      - "3123:80"
+      - "80:80"
+    volumes:
+      - ./nginx-production.conf:/etc/nginx/conf.d/default.conf
+      - frontend_build:/usr/share/nginx/html
     depends_on:
       - backend
+      - frontend
     networks:
       - cv-voting-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 10s
 
 networks:
   cv-voting-network:
@@ -65,4 +76,5 @@ networks:
 
 volumes:
   backend_data:
-  postgres_data: 
+  postgres_data:
+  frontend_build: 
