@@ -25,8 +25,6 @@ services:
       - REDIRECT_URI=${PROD_DOMAIN}/auth/callback
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DATABASE_URL=postgresql://cvvoting:cvvoting@db:5432/cvvoting
-    volumes:
-      - ./backend:/app
     networks:
       - cv-voting-network
     restart: unless-stopped
