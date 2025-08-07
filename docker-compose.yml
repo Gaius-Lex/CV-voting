@@ -36,6 +36,9 @@ services:
       start_period: 40s
     labels:
       - traefik.docker.network=coolify
+      - traefik.enable=true
+      - traefik.http.routers.react.rule=Host(`backend.cv-grader.test.gaiuslex.pl`)
+      - traefik.http.routers.react.entrypoints=websecure
       
   frontend:
     build:
@@ -73,6 +76,9 @@ services:
       start_period: 10s
     labels:
       - traefik.docker.network=coolify
+      - traefik.enable=true
+      - traefik.http.routers.react.rule=Host(`cv-grader.test.gaiuslex.pl`)
+      - traefik.http.routers.react.entrypoints=websecure
 
 networks:
   cv-voting-network:
