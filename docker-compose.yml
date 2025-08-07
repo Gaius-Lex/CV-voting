@@ -34,7 +34,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
+    labels:
+      - traefik.docker.network=coolify
+      
   frontend:
     build:
       context: ./frontend
@@ -69,10 +71,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    labels:
+      - traefik.docker.network=coolify
 
 networks:
   cv-voting-network:
-    driver: bridge
 
 volumes:
   backend_data:
